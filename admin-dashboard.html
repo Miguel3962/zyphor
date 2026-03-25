@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Focus & Discipline</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(0,0,0,0.8); border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(212,175,55,0.2); }
+        .table th, .table td { padding: 15px; text-align: left; border-bottom: 1px solid #333; }
+        .table th { background: linear-gradient(45deg, #D4AF37, #F2D492); color: #000; font-weight: 600; }
+        .table tr:hover { background: rgba(212,175,55,0.1); }
+        .action-btn { padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; margin: 0 2px; font-size: 12px; }
+        .delete { background: #ff4444; color: white; }
+        .edit { background: #D4AF37; color: #000; }
+        .logout-admin { position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 10px 20px; border: none; border-radius: 25px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <button class="logout-admin" onclick="logoutAdmin()">Sair</button>
+    <div class="admin-container">
+        <h1>🛡️ Painel Admin</h1>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Nome</th>
+                    <th>Senha</th>
+                    <th>Plano</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="usersTable">
+            </tbody>
+        </table>
+    </div>
+    <script>
+        if (!localStorage.getItem('adminSession')) {
+            window.location.href = 'admin-index.html';
+        }
+        function logoutAdmin() {
+            localStorage.removeItem('adminSession');
+            window.location.href = '../index.html';
+        }
+        function loadUsers() {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '';
+            users.forEach((user, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${user.email}</td>
+                    <td>${user.name || 'N/A'}</td>
+                    <td>${user.password}</td>
+                    <td>${user.plan || 'Free'}</td>
+                    <td>
+                        <button class="action-btn edit" onclick="editUser(${index})">Edit</button>
+                        <button class="action-btn delete" onclick="deleteUser(${index})">Delete</button>
+                    </td>
+                `;
+            });
+        }
+        function editUser(index) {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users[index];
+            const newName = prompt('Novo nome:', user.name);
+            const newEmail = prompt('Novo email:', user.email);
+            const newPlan = prompt('Plano (Free/Pro):', user.plan || 'Free');
+            if (newName) user.name = newName;
+            if (newEmail) user.email = newEmail;
+            if (newPlan) user.plan = newPlan;
+            localStorage.setItem('users', JSON.stringify(users));
+            loadUsers();
+        }
+        function deleteUser(index) {
+            if (confirm('Deletar usuário?')) {
+                const users = JSON.parse(localStorage.getItem('users') || '[]');
+                users.splice(index, 1);
+                localStorage.setItem('users', JSON.stringify(users));
+                loadUsers();
+            }
+        }
+        loadUsers();
+    </script>
+</body>
+</html>

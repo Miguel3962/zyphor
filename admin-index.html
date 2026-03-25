@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Focus &amp; Discipline</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-box">
+            <h2>Painel Admin</h2>
+            <p>Login administrativo</p>
+            <form id="adminLoginForm">
+                <input type="email" id="adminEmail" placeholder="Email" required>
+                <input type="password" id="adminPassword" placeholder="Senha" required>
+                <button type="submit" class="btn submit-btn">Entrar Admin</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        document.getElementById('adminLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            if (email === 'adm@adm' && password === 'M19A11Z20S07') {
+                localStorage.setItem('adminSession', 'true');
+                window.location.href = 'admin-dashboard.html';
+            } else {
+                alert('Acesso negado. Apenas admin autorizado.');
+                // Stay on admin page
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus &amp; Discipline - Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-box">
+            <div class="toggle-btns">
+                <button class="toggle-btn active" onclick="switchForm('login')">Login</button>
+                <button class="toggle-btn" onclick="switchForm('register')">Criar Conta</button>
+            </div>
+            <div id="errorMsg" class="error-message"></div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="form active">
+                <h2>Bem-vindo de volta</h2>
+                <p>Entre para focar e se disciplinar</p>
+                <input type="email" placeholder="Email" id="loginEmail" required>
+                <input type="password" placeholder="Senha" id="loginPassword" required>
+<button type="submit" class="btn submit-btn">Entrar</button>
+                <a href="#" id="forgotPassword" class="forgot-password">Esqueceu a senha?</a>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="form">
+                <h2>Comece sua jornada</h2>
+                <p>Crie uma conta para acessar ferramentas de foco</p>
+                <input type="text" placeholder="Nome" id="regName" required>
+                <input type="email" placeholder="Email" id="regEmail" required>
+                <input type="password" placeholder="Senha" id="regPassword" required>
+                <input type="password" placeholder="Confirmar Senha" id="regConfirmPassword" required>
+                <button type="submit" class="btn submit-btn">Criar Conta</button>
+            </form>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+

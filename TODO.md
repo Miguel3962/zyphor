@@ -1,0 +1,6 @@
+# Task: Atualizar labels do gráfico e adicionar demo data
+
+## Steps to complete:
+- [x] 1. Update days array to ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']\n- [x] 2. Add demo data initialization in renderChart() if weeklyStats all zeros\n- [ ] 3. Test chart visibility in browser\n\nProgress: Edits applied, fixing JS lint errors...
+
+Progress: Starting edits...

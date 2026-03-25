@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus & Discipline - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="close-sidebar" id="closeSidebar">×</button>
+        </div>
+        <div class="sidebar-content">
+            <h3>Configurações</h3>
+            <ul>
+                <li><button>Editar Perfil</button></li>
+                <li><button>Notificações</button></li>
+                <li><button>Temas</button></li>
+                <li><button>Privacidade</button></li>
+                <li><hr></li>
+                <li><button id="logoutBtnSidebar">Sair</button></li>
+            </ul>
+        </div>
+    </div>
+    <div class="overlay" id="overlay"></div>
+    <div class="dashboard-wrapper">
+        <div class="user-card-screen-left" id="userCard">
+            <div class="avatar-circle" id="avatarCircle">?</div>
+            <div class="user-info">
+                <h3 id="userName">Carregando...</h3>
+            </div>
+        </div>
+        <div class="dashboard-container">
+<div class="dashboard-header">
+                <h1>🧠 Focus & Discipline</h1>
+            </div>
+
+            <div class="welcome-section">
+                <h2 id="welcomeUser">Bem-vindo!</h2>
+
+                <div class="features">
+                </div>
+
+
+            </div>
+
+            
+            <!-- Metas Section -->
+            <div class="metas-section">
+                <h3>Minhas Metas</h3>
+                <p>Defina e acompanhe suas metas diárias de foco</p>
+
+
+                <div class="meta-input-group">
+                    <input type="text" id="newMetaInput" placeholder="Digite sua meta" maxlength="200">
+
+<button id="addMetaBtn" class="add-btn small-btn">Adicionar</button>
+
+                </div>
+
+
+
+                <ul id="metasList" class="metas-list"></ul>
+            </div>
+            
+            <!-- Weekly Stats Card -->
+            <div class="stats-card">
+                <div class="card-header">
+                    <h3>📊 Progresso Semanal</h3>
+                    <p>Metas completadas por dia</p>
+                </div>
+                <canvas id="weeklyChart" height="300"></canvas>
+            </div>
+            
+        
+            
+        </div>
+    </div>
+    <script>
+
+        // Check session
+        const userSession = JSON.parse(localStorage.getItem('userSession') || '{}');
+        if (!userSession.loggedIn) {
+            window.location.href = 'index.html';
+        }
+        
+        // Set user info and avatar
+        const name = userSession.name || userSession.email || 'Usuário';
+        document.getElementById('welcomeUser').textContent = `Bem-vindo, ${name}!`;
+        document.getElementById('userName').textContent = name;
+        const firstLetter = name.charAt(0).toUpperCase() || '?';
+        document.getElementById('avatarCircle').textContent = firstLetter;
+
+        // Sidebar functionality
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const userCard = document.getElementById('userCard');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const logoutBtnSidebar = document.getElementById('logoutBtnSidebar');
+
+        userCard.addEventListener('click', function() {
+            sidebar.classList.add('active');
+            overlay.classList.add('active');
+        });
+
+        closeSidebar.addEventListener('click', closeSidebarFunc);
+        overlay.addEventListener('click', closeSidebarFunc);
+
+        function closeSidebarFunc() {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        }
+
+        logoutBtnSidebar.addEventListener('click', function() {
+            localStorage.removeItem('userSession');
+            window.location.href = 'index.html';
+        });
+
+// Removed main logout button (sidebar has it)
+
+        // Style vars
+        document.body.style.fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        document.body.style.background = "linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #0f0f0f 100%)";
+        document.body.style.minHeight = "100vh";
+        document.body.style.margin = "0";
+        document.body.style.position = "relative";
+        document.body.style.color = "#f0f0f0";
+        document.body.style.overflowX = "hidden";
+
+        // Metas functionality
+let metas = JSON.parse(localStorage.getItem('metas') || '[]');
+let editingIndex = -1;
+        
+        const newMetaInput = document.getElementById('newMetaInput');
+
+        const metasList = document.getElementById('metasList');
+        
+        function renderMetas() {
+            metasList.innerHTML = '';
+
+            metas.forEach((meta, index) => {
+                const li = document.createElement('li');
+                li.className = 'meta-item';
+                li.dataset.index = index;
+                if (editingIndex === index) {
+                    li.innerHTML = `
+                        <input type="text" class="meta-edit-input" value="${meta}" />
+                        <button class="save-meta" onclick="saveMeta(${index})">✓</button>
+                        <button class="cancel-edit" onclick="cancelEdit()">✗</button>
+                    `;
+                } else {
+                    li.innerHTML = `
+                        <span class="meta-text">${meta}</span>
+                        <button class="complete-meta" onclick="completeMeta(${index})">✔</button>
+                        <button class="edit-meta" onclick="editMeta(${index})">✎</button>
+                        <button class="delete-meta" onclick="deleteMeta(${index})">×</button>
+                    `;
+                }
+                metasList.appendChild(li);
+            });
+            renderChart(); // Always render chart
+        }
+
+        function completeMeta(index) {
+            // Mark as completed without removing from list
+            let completedMetas = JSON.parse(localStorage.getItem('completedMetas') || '[]');
+            completedMetas.unshift(metas[index]);
+            localStorage.setItem('completedMetas', JSON.stringify(completedMetas));
+            
+            // Update weekly stats
+            let weeklyStats = JSON.parse(localStorage.getItem('weeklyStats') || '[0,0,0,0,0,0,0]');
+            const today = new Date().getDay(); // 0=Dom, 6=Sáb
+            weeklyStats[today]++;
+            localStorage.setItem('weeklyStats', JSON.stringify(weeklyStats));
+            renderChart();
+            renderMetas();
+        }
+        
+        function renderChart() {
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            const weeklyStats = JSON.parse(localStorage.getItem('weeklyStats') || '[0,0,0,0,0,0,0]');
+            if (weeklyStats.every(function(val) { return val === 0; })) {
+                weeklyStats = [3,2,5,1,4,0,2];
+            }
+            const days = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+
+            if (window.weeklyChart) window.weeklyChart.destroy();
+
+            window.weeklyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        data: weeklyStats,
+                        backgroundColor: 'linear-gradient(45deg, #D4AF37, #E6C478)',
+                        borderColor: '#D4AF37',
+                        borderWidth: 2,
+                        borderRadius: 12,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(212,175,55,0.1)' },
+                            ticks: { color: '#f0f0f0', stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#D4AF37' }
+                        }
+                    },
+                    animation: {
+                        duration: 1200,
+                    }
+                }
+            });
+        }
+        
+        function addMeta() {
+            const text = newMetaInput.value.trim();
+            if (text) {
+                metas.unshift(text);
+                localStorage.setItem('metas', JSON.stringify(metas));
+                newMetaInput.value = '';
+                renderMetas();
+            }
+        }
+        
+        function deleteMeta(index) {
+            const modal = document.createElement('div');
+            modal.id = 'deleteConfirmModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;
+                z-index: 1000; backdrop-filter: blur(5px);
+            `;
+            modal.innerHTML = `
+                <div style="
+                    background: linear-gradient(135deg, #1a1a1a, #000); 
+                    border: 2px solid #ff4444; border-radius: 20px; padding: 40px; 
+                    max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(255,68,68,0.3);
+                ">
+                    <h3 style="color: #ff4444; margin-bottom: 20px;">⚠️ Tem certeza?</h3>
+                    <p style="color: #f0f0f0; line-height: 1.5; margin-bottom: 30px;">
+                        Deseja realmente <strong>excluir</strong> esta meta? 
+                        <br><small>Esta ação não pode ser desfeita.</small>
+                    </p>
+                    <div style="display: flex; gap: 15px; justify-content: center;">
+                        <button id="confirmDelete" onclick="confirmDelete(${index})" style="
+                            background: #ff4444; color: white; border: none; padding: 12px 24px; 
+                            border-radius: 25px; cursor: pointer; font-weight: 600; 
+                            transition: all 0.3s; min-width: 100px;
+                        ">Excluir</button>
+                        <button onclick="closeDeleteModal()" style="
+                            background: linear-gradient(45deg, #D4AF37, #F2D492); color: #000; 
+                            border: none; padding: 12px 24px; border-radius: 25px; 
+                            cursor: pointer; font-weight: 600; transition: all 0.3s; min-width: 100px;
+                        ">Cancelar</button>
+                    </div>
+                    <button onclick="closeDeleteModal()" style="
+                        position: absolute; top: 15px; right: 15px; width: 35px; height: 35px; 
+                        border-radius: 50%; background: #ff4444; color: white; border: none; 
+                        font-size: 20px; font-weight: bold; cursor: pointer;
+                    ">×</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function confirmDelete(index) {
+            metas.splice(index, 1);
+            localStorage.setItem('metas', JSON.stringify(metas));
+            closeDeleteModal();
+            renderMetas();
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteConfirmModal');
+            if (modal) modal.remove();
+        }
+        
+        const addMetaBtn = document.getElementById('addMetaBtn');
+        addMetaBtn.addEventListener('click', addMeta);
+        newMetaInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addMeta();
+        });
+        
+// Edit functions
+        function editMeta(index) {
+            editingIndex = index;
+            renderMetas();
+        }
+
+        function saveMeta(index) {
+            const input = metasList.children[index].querySelector('.meta-edit-input');
+            const newText = input.value.trim();
+            if (newText) {
+                metas[index] = newText;
+                localStorage.setItem('metas', JSON.stringify(metas));
+            }
+            editingIndex = -1;
+            renderMetas();
+        }
+
+        function cancelEdit() {
+            editingIndex = -1;
+            renderMetas();
+        }
+
+        // Initial render
+        renderMetas();
+
+    </script>
+    <style>
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -350px;
+            width: 350px;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.98);
+            border-right: 2px solid #D4AF37;
+            backdrop-filter: blur(20px);
+            z-index: 200;
+            transition: left 0.3s ease;
+            padding: 20px;
+        }
+        .sidebar.active {
+            left: 0;
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+        .close-sidebar {
+            background: none;
+            border: none;
+            color: #D4AF37;
+            font-size: 30px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .close-sidebar:hover {
+            background: rgba(212, 175, 55, 0.2);
+            transform: rotate(90deg);
+        }
+        .sidebar-content h3 {
+            color: #F2D492;
+            margin-bottom: 20px;
+        }
+        .sidebar-content ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar-content li button {
+            width: 100%;
+            padding: 15px;
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid #D4AF37;
+            border-radius: 10px;
+            color: #f0f0f0;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+        .sidebar-content li button:hover {
+            background: linear-gradient(45deg, #D4AF37, #F2D492);
+            color: #000;
+            transform: translateX(5px);
+        }
+        .sidebar-content hr {
+            border: none;
+            height: 1px;
+            background: #D4AF37;
+            margin: 20px 0;
+            opacity: 0.5;
+        }
+        #logoutBtnSidebar {
+            background: #ff4444 !important;
+            font-weight: bold;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 150;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .dashboard-wrapper {
+            min-height: 100vh;
+            position: relative;
+        }
+        .user-card-screen-left {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #D4AF37;
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 40px rgba(212, 175, 55, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        .user-card-screen-left:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 50px rgba(212, 175, 55, 0.5);
+        }
+        .avatar-circle {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(45deg, #D4AF37, #F2D492);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #000;
+            flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.6);
+        }
+        .user-info h3 {
+            color: #F2D492;
+            font-size: 18px;
+            margin: 0;
+            white-space: nowrap;
+        }
+        .dashboard-container {\n            max-width: 1200px;\n            width: 98%;\n            margin: 80px auto 0;\n            text-align: center;\n            display: grid;\n            grid-template-columns: 1fr 1fr;\n            gap: 40px;\n            align-items: start;\n        }\n        .metas-section {\n            grid-column: 1;\n        }\n        .stats-card {\n            grid-column: 2;\n            align-self: center;\n        }
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        .dashboard-header h1 {
+            font-size: 32px;
+            background: linear-gradient(45deg, #D4AF37, #F2D492);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .logout-btn {
+            background: #ff4444;
+            color: white !important;
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .logout-btn:hover {
+            background: #cc3333;
+            transform: translateY(-2px);
+        }
+        .welcome-section h2 {
+            color: #F2D492;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+            margin-bottom: 60px;
+        }
+        
+        /* Metas Styles */
+        .metas-section {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .metas-section h3 {
+            color: #F2D492;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .metas-section p {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+.meta-input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #newMetaInput {
+            flex: 1;
+            padding: 15px 20px !important;
+            height: 52px !important;
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+        }
+
+
+        .add-btn.small-btn {
+            flex-shrink: 0;
+            padding: 12px 6px !important;
+            height: 42px !important;
+            line-height: 1 !important;
+            min-width: 65px !important;
+            font-size: 11px !important;
+            border-radius: 6px !important;
+        }
+
+        
+        #newMetaInput {
+            flex: 1;
+            padding: 15px 20px !important;
+            height: 52px !important;
+            line-height: 1.2 !important;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #f0f0f0;
+            font-size: 16px;
+        }
+        
+        #newMetaInput:focus {
+            outline: none;
+            border-color: #D4AF37;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+        }
+        
+        #addMetaBtn {
+            background: linear-gradient(45deg, #D4AF37, #F2D492) !important;
+            color: #000 !important;
+            border: none !important;
+            padding: 0 12px !important;
+            height: 52px !important;
+            line-height: 52px !important;
+            border-radius: 10px !important;
+            font-weight: 600;
+            font-size: 14px !important;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            min-width: 70px !important;
+            align-items: center !important;
+            display: flex !important;
+            justify-content: center !important;
+        }
+        
+        #addMetaBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+        }
+        
+        .metas-list {
+            list-style: none;
+            padding: 0;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .meta-item {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #D4AF37;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        
+        .meta-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.2);
+        }
+        
+        .meta-item span {
+            flex: 1;
+            color: #f0f0f0;
+            font-size: 16px;
+        }
+        
+        .delete-meta {
+            background: #ff4444;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .delete-meta:hover {
+            background: #cc3333;
+            transform: scale(1.1);
+        }
+
+        .complete-meta {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin-right: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+        .complete-meta:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+
+        .edit-meta, .save-meta, .cancel-edit {
+            background: #D4AF37;
+            color: #000;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-left: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-meta:hover {
+            background: #F2D492;
+            transform: scale(1.1);
+        }
+
+        .save-meta {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .save-meta:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+
+        .cancel-edit {
+            background: #ff9800;
+            color: white;
+        }
+
+        .cancel-edit:hover {
+            background: #f57c00;
+            transform: scale(1.1);
+        }
+
+        .meta-edit-input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #D4AF37;
+            border-radius: 6px;
+            color: #f0f0f0;
+            font-size: 16px;
+        }
+
+        .meta-edit-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            .meta-input-group {
+                flex-direction: column;
+            }
+            
+            .meta-item {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
+        .feature-card {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #D4AF37;
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(5px);
+            transition: transform 0.3s ease;
+        }
+        .stats-card {
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #D4AF37;
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(212,175,55,0.3);
+            margin: 40px auto;
+            max-width: none;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #D4AF37, #E6C478);
+        }
+        .card-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .card-header h3 {
+            color: #F2D492;
+            font-size: 26px;
+            margin: 0 0 5px 0;
+        }
+        .card-header p {
+            color: #aaa;
+            margin: 0;
+            font-size: 16px;
+        }
+        .stats-card canvas {
+            max-height: 200px !important;
+            width: 100% !important;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(212, 175, 55, 0.2);
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 300px;
+                left: -300px;
+            }
+            .user-card-screen-left {
+                top: 15px;
+                left: 15px;
+                padding: 15px;
+                gap: 10px;
+            }
+            .avatar-circle {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+            .user-info h3 {
+                font-size: 16px;
+            }
+            .dashboard-container {
+                margin-top: 120px;
+                width: 95%;
+            }
+            .dashboard-header {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>
+
